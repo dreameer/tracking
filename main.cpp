@@ -402,7 +402,7 @@ void *writefun(void *datafrommainthread) {
 }
 int main(int argc, char *argv[]) {
 	/*create log file to record*/
-	FILE *logFile = fopen("./log.data", "w");
+	FILE *logFile = fopen("log.data", "w");
 	if (logFile == NULL) {
 		printf("fopen logfile error!%X", (int*) logFile);
 		return -1;
@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
 	tio.c_lflag = 0;
 	tio.c_cc[VMIN] = 1;
 	tio.c_cc[VTIME] = 0;
-	const char ttyname[] = "/dev/ttyUSB0";
+	const char ttyname[] = "/dev/ttyS0";
 	int tty_fd = open(ttyname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (!isatty(tty_fd)) {
 		fprintf(logFile,"filedescritor is not a tty device!\n");
