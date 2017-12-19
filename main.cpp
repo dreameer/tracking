@@ -1,3 +1,44 @@
+/*M///////////////////////////////////////////////////////////////////////////////////////
+//
+//  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
+//
+//  By downloading, copying, installing or using the software you agree to this license.
+//  If you do not agree to this license, do not download, install,
+//  copy or use the software.
+//
+//
+//                          License Agreement
+//                For Open Source Computer Vision Library
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+//   * Redistribution's of source code must retain the above copyright notice,
+//     this list of conditions and the following disclaimer.
+//
+//   * Redistribution's in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//
+//   * The name of the copyright holders may not be used to endorse or promote products
+//     derived from this software without specific prior written permission.
+//
+// This software is provided by the copyright holders and contributors "as is" and
+// any express or implied warranties, including, but not limited to, the implied
+// warranties of merchantability and fitness for a particular purpose are disclaimed.
+// In no event shall the Intel Corporation or contributors be liable for any direct,
+// indirect, incidental, special, exemplary, or consequential damages
+// (including, but not limited to, procurement of substitute goods or services;
+// loss of use, data, or profits; or business interruption) however caused
+// and on any theory of liability, whether in contract, strict liability,
+// or tort (including negligence or otherwise) arising in any way out of
+// the use of this software, even if advised of the possibility of such damage.
+//
+//M*/
 #include <opencv2/core/utility.hpp>
 #include <opencv2/tracking.hpp>
 #include <opencv2/videoio.hpp>
@@ -163,7 +204,7 @@ void *writefun(void *datafrommainthread) {
 		center_rect = Rect(frame.cols * 0.35, frame.rows * 0.35,
 				frame.cols * 0.3, frame.rows * 0.3);
 		init_rect = center_rect;
-		namedWindow("tracker", 0);
+		namedWindow("FEIFANUAV", 0);
 		int looseflag = 0;
 		unsigned char trackstatus = 0;
 		char keyboardcmd = 'c';
@@ -342,7 +383,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	fprintf(logFile, "******************begin***************\n");
+	fprintf(logFile, "begin\n");
 	fflush(logFile);
 	/*open tty to comunication with out device*/
 	struct termios tio;
@@ -356,41 +397,41 @@ int main(int argc, char *argv[]) {
 	const char ttyname[] = "/dev/ttyUSB0";
 	int tty_fd = open(ttyname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (!isatty(tty_fd)) {
-		printf("filedescritor is not a tty device!\n");
+		fprintf(logFile,"filedescritor is not a tty device!\n");
+		fflush(logFile);
 		fclose(logFile);
 		return -1;
 	}
 	cfsetospeed(&tio, B115200);              // 115200 baud
 	cfsetispeed(&tio, B115200);              // 115200 baud
 	tcsetattr(tty_fd, TCSANOW, &tio);
-	printf("open port %d\n", tty_fd);
-
-	fprintf(logFile, "******************finish open tty***************\n");
+	fprintf(logFile, "finish open tty\n");
 	fflush(logFile);
+
+
 	/*create two thread to control read and write*/
 	pthread_t thread_r, thread_w;
 	long id_r, id_w;
-
 	Ppassdatathread readthreaddata = (Ppassdatathread) malloc(
 			1 * sizeof(passdatathread));
 	Ppassdatathread writethreaddata = (Ppassdatathread) malloc(
 			1 * sizeof(passdatathread));
-
 	readthreaddata->tty_filedescriptor = tty_fd;
 	writethreaddata->tty_filedescriptor = tty_fd;
 
 	id_w = pthread_create(&thread_w, NULL, writefun, (void*) writethreaddata);
-	fprintf(logFile, "******************create threadw***************\n");
+	fprintf(logFile, "finish create threadw\n");
+	fflush(logFile);
 	id_r = pthread_create(&thread_r, NULL, readfun, (void*) readthreaddata);
-	fprintf(logFile, "******************create threadr***************\n");
+	fprintf(logFile, "finish create threadr\n");
+	fflush(logFile);
 
 	/*wait for two thread end then clean resource*/
 	while ((!ReadEnd) || (!WriteEnd)) {
 	};
-	fprintf(logFile, "******************thread exit**************\n");
+	fprintf(logFile, "thread exit\n");
 	close(tty_fd);
-	fprintf(logFile, "******************close tty***************\n");
+	fprintf(logFile, "close tty\n");
 	fclose(logFile);
-	printf("end of main thread\n");
 	return 0;
 }
