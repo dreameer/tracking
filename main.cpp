@@ -82,6 +82,20 @@ int readqpeng(int p_ttyfd, void *dst, int size, int waitnum) {
 		return -1;
 	}
 }
+string gettimestrwithavi(void)
+{
+    time_t current_time;
+    char* c_time_string;
+    current_time = time(NULL);
+    c_time_string = ctime(&current_time);
+    string timestr;
+    timestr.append(&c_time_string[11],2);
+    timestr.append(&c_time_string[14],2);
+    timestr.append(&c_time_string[17],2);
+    cout<<timestr<<endl;
+    const string NAME = timestr + ".avi";   // Form the new name with container
+    return NAME;
+}
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 	unsigned char buff[readbuffsize];
@@ -189,17 +203,18 @@ void *writefun(void *datafrommainthread) {
 
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
-	VideoCapture cap(0);
-	cap.set(CAP_PROP_FRAME_WIDTH,320);
-	cap.set(CAP_PROP_FRAME_HEIGHT,240);
-	if (!cap.isOpened()) {
+	VideoCapture inputcamera(0);
+	VideoWriter outputVideo;
+	inputcamera.set(CAP_PROP_FRAME_WIDTH,320);
+	inputcamera.set(CAP_PROP_FRAME_HEIGHT,240);
+	if (!inputcamera.isOpened()) {
 		printf("cant open camera!\n");
 	} else {
 		Mat frame;
 		Rect2d object_rect, init_rect, center_rect;
 		int object_center_x, object_center_y;
 		unsigned char xl, xh, yl, yh;
-		cap >> frame;
+		inputcamera >> frame;
 		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
 		init_rect = center_rect;
 		namedWindow("FEIFANUAV", 0);
@@ -208,7 +223,12 @@ void *writefun(void *datafrommainthread) {
 		char keyboardcmd = 'c';
 		bool intracking = false;
 		while (MainControl) {
-			cap >> frame;
+			switch(keyboardcmd){
+			case 'q':CmdFromUart = 0x0001;break;
+			case 'w':CmdFromUart = 0x0010;break;
+			case 'e':MainControl = false;break;
+			default:break;
+			}
 			switch (CmdFromUart) {
 			case 0x0002:
 				init_rect.x--;
@@ -273,12 +293,21 @@ void *writefun(void *datafrommainthread) {
 			default:
 				break;
 			}
-
-			if ((keyboardcmd == 'a') || (CmdFromUart == 0x0001)) {
+			inputcamera >> frame;
+			if (CmdFromUart == 0x0001) {
 				printf("inti roi frmae w:%d h:%d\n", frame.cols, frame.rows);
 				object_rect = init_rect;
 				tracker = TrackerKCF::create(params);
 				tracker->init(frame, object_rect);
+			    const string NAME = gettimestrwithavi();
+			    Size S = Size((int) inputcamera.get(CAP_PROP_FRAME_WIDTH),
+			                  (int) inputcamera.get(CAP_PROP_FRAME_HEIGHT));
+			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), inputcamera.get(CAP_PROP_FPS), S, true);
+			    if (!outputVideo.isOpened())
+			    {
+			        cout  << "Could not open the output video for write: " << endl;
+			        break;
+			    }
 				intracking = true;
 				CmdFromUart = 0xffff;
 			} else {
@@ -334,6 +363,8 @@ void *writefun(void *datafrommainthread) {
 					object_center_y = frame.rows * 0.5;
 					trackstatus = 2;
 				}
+				outputVideo << frame;
+
 			} else {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 1, 1);
 				putText(frame, "press A to begin", Point(10, 10),
@@ -344,8 +375,6 @@ void *writefun(void *datafrommainthread) {
 			}
 			imshow("FEIFANUAV", frame);
 			keyboardcmd = (char) waitKey(1);
-			if (keyboardcmd == 'b')
-				break;
 
 			xl = (object_center_x & 0x000000ff);
 			xh = ((object_center_x >> 8) & 0x000000ff);
@@ -373,7 +402,7 @@ void *writefun(void *datafrommainthread) {
 }
 int main(int argc, char *argv[]) {
 	/*create log file to record*/
-	FILE *logFile = fopen("./log.data", "w");
+	FILE *logFile = fopen("log.data", "w");
 	if (logFile == NULL) {
 		printf("fopen logfile error!%X", (int*) logFile);
 		return -1;
