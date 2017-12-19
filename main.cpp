@@ -190,7 +190,8 @@ void *writefun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
 	VideoCapture cap(0);
-
+	cap.set(CAP_PROP_FRAME_WIDTH,320);
+	cap.set(CAP_PROP_FRAME_HEIGHT,240);
 	if (!cap.isOpened()) {
 		printf("cant open camera!\n");
 	} else {
@@ -199,10 +200,7 @@ void *writefun(void *datafrommainthread) {
 		int object_center_x, object_center_y;
 		unsigned char xl, xh, yl, yh;
 		cap >> frame;
-		//pyrDown(frame,frame,Size(frame.cols/2,frame.rows/2));
-		//pyrDown(frame,frame,Size(frame.cols/2,frame.rows/2));
-		center_rect = Rect(frame.cols * 0.35, frame.rows * 0.35,
-				frame.cols * 0.3, frame.rows * 0.3);
+		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
 		init_rect = center_rect;
 		namedWindow("FEIFANUAV", 0);
 		int looseflag = 0;
@@ -211,8 +209,6 @@ void *writefun(void *datafrommainthread) {
 		bool intracking = false;
 		while (MainControl) {
 			cap >> frame;
-			//pyrDown(frame,frame,Size(frame.cols/2,frame.rows/2));
-			//pyrDown(frame,frame,Size(frame.cols/2,frame.rows/2));
 			switch (CmdFromUart) {
 			case 0x0002:
 				init_rect.x--;
@@ -346,7 +342,7 @@ void *writefun(void *datafrommainthread) {
 				object_center_y = frame.rows * 0.5;
 				trackstatus = 0;
 			}
-			imshow("tracker", frame);
+			imshow("FEIFANUAV", frame);
 			keyboardcmd = (char) waitKey(1);
 			if (keyboardcmd == 'b')
 				break;
@@ -394,7 +390,7 @@ int main(int argc, char *argv[]) {
 	tio.c_lflag = 0;
 	tio.c_cc[VMIN] = 1;
 	tio.c_cc[VTIME] = 0;
-	const char ttyname[] = "/dev/ttyUSB0";
+	const char ttyname[] = "/dev/ttyS0";
 	int tty_fd = open(ttyname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (!isatty(tty_fd)) {
 		fprintf(logFile,"filedescritor is not a tty device!\n");
