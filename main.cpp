@@ -101,6 +101,13 @@ string gettimestrwithavi(void)
     const string NAME = timestr + ".avi";   // Form the new name with container
     return NAME;
 }
+void drawcross(Mat frame,Rect2d init_rect,const Scalar& color)
+{
+	line(frame,Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.4),
+	Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.6),color,1,1);
+	line(frame,Point(init_rect.x+init_rect.width*0.4,init_rect.y+init_rect.height*0.5),
+	Point(init_rect.x+init_rect.width*0.6,init_rect.y+init_rect.height*0.5),color,1,1);
+}
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 	unsigned char buff[readbuffsize];
@@ -358,6 +365,7 @@ void *writefun(void *datafrommainthread) {
 						break;
 					}
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
+					drawcross(frame,init_rect,Scalar(0,0,255));
 					object_center_x = object_rect.x + object_rect.width * 0.5;
 					object_center_y = object_rect.y + object_rect.height * 0.5;
 					trackstatus = 1;
@@ -372,6 +380,7 @@ void *writefun(void *datafrommainthread) {
 
 			} else {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 1, 1);
+				drawcross(frame,init_rect,Scalar(255,0,0));
 				putText(frame, "press A to begin", Point(10, 10),
 						FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
 				object_center_x = frame.cols * 0.5;
