@@ -88,10 +88,15 @@ string gettimestrwithavi(void)
     char* c_time_string;
     current_time = time(NULL);
     c_time_string = ctime(&current_time);
+    cout<<c_time_string<<endl;
     string timestr;
+    timestr.append(&c_time_string[0],3);
+    timestr.append(&c_time_string[4],3);
+    timestr.append(&c_time_string[8],2);
     timestr.append(&c_time_string[11],2);
     timestr.append(&c_time_string[14],2);
     timestr.append(&c_time_string[17],2);
+    timestr.append(&c_time_string[20],4);
     cout<<timestr<<endl;
     const string NAME = timestr + ".avi";   // Form the new name with container
     return NAME;
