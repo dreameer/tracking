@@ -55,13 +55,15 @@
 #include <errno.h>   /* Error number definitions */
 #include <termios.h> /* POSIX terminal control definitions */
 
-#define readbuffsize 14
+#define readbuffsize 32
+#define databuffsize 4
 #define writebuffsize 14
 
 using namespace std;
 using namespace cv;
 
 unsigned short CmdFromUart = 0xffff;
+char databuff[databuffsize] = {0}; 
 bool MainControl = true;
 bool ReadEnd = false;
 bool WriteEnd = false;
@@ -160,11 +162,10 @@ void *readfun(void *datafrommainthread) {
 									if ((cl == buff[index - 3])
 											&& (ch == buff[index - 2])) {
 										unsigned short cmd;
-										memcpy(&cmd, &buff[2],
-												sizeof(unsigned short));
+										memcpy(&cmd, &buff[2],sizeof(unsigned short));
 										CmdFromUart = cmd;
-										printf("cmd is:%x lastchar:%x\n", cmd,
-												buff[index - 1]);
+										memcpy(databuff,&buff[6],datalength*sizeof(char));
+										printf("cmd is:%x datalength:%d\n", cmd,datalength);
 									} else {
 										printf("didt pass cyc\n");
 									}
@@ -237,84 +238,73 @@ void *writefun(void *datafrommainthread) {
 		init_rect = center_rect;
 		object_rect = init_rect;
 		namedWindow("FEIFANUAV", 0);
-		int looseflag = 0;
-		unsigned char trackstatus = 0;
+		unsigned char track_status = 0;
+		unsigned char track_turn   = 0;
 		char keyboardcmd = 'c';
 		bool intracking = false;
+		unsigned char Lock = 0;
+		short X_Move = 0;
+		short Y_Move = 0;
+		unsigned short Width = 0;
+		unsigned short Height = 0;
+		unsigned short temp = 0;
 		while (MainControl) {
 			switch(keyboardcmd){
-			case 'q':CmdFromUart = 0x0001;break;
-			case 'w':CmdFromUart = 0x0010;break;
+			case 'q':track_turn = 1;break;
+			case 'w':intracking = false;break;
 			case 'e':MainControl = false;break;
 			default:break;
 			}
 			switch (CmdFromUart) {
+			case 0x0001:
+			    memcpy(&Lock,databuff,sizeof(unsigned char));
+			    if(Lock==0){
+					intracking = false;
+					init_rect = center_rect;
+				}else if(Lock==1){
+					track_turn = 1;
+				}
+				CmdFromUart = 0xffff;
+				break;
 			case 0x0002:
-				init_rect.x--;
-				if (init_rect.x <= 0) {
-					init_rect.x++;
+			    memcpy(&X_Move,databuff,sizeof(short));
+				init_rect.x = init_rect.x + X_Move;
+				if ((init_rect.x <= 0) && (init_rect.br().x >= frame.cols) ) {
+					init_rect.x = init_rect.x - X_Move;
 				}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0003:
-				init_rect.x++;
-				if (init_rect.br().x >= frame.cols) {
-					init_rect.x--;
+			    memcpy(&Y_Move,databuff,sizeof(short));
+				init_rect.y = init_rect.y + Y_Move;
+				if ( (init_rect.y <= 0) && (init_rect.br().y >= frame.rows)) {
+					init_rect.y = init_rect.y - Y_Move;;
 				}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0004:
-				init_rect.y--;
-				if (init_rect.y <= 0) {
-					init_rect.y++;
+			    memcpy(&Width,databuff,sizeof(unsigned short));
+			    temp = init_rect.width;
+				init_rect.width = ((float)Width/320)*frame.cols;
+				if (init_rect.br().x >= frame.cols) {
+					init_rect.width = temp;
 				}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0005:
-				init_rect.y++;
+		        memcpy(&Height,databuff,sizeof(unsigned short));
+				temp = init_rect.height;
+				init_rect.height = ((float)Height/240)*frame.rows;
 				if (init_rect.br().y >= frame.rows) {
-					init_rect.y--;
+					init_rect.height = temp;
 				}
-				CmdFromUart = 0xffff;
-				break;
-			case 0x0006:
-				init_rect.width++;
-				if (init_rect.br().x >= frame.cols) {
-					init_rect.width--;
-				}
-				CmdFromUart = 0xffff;
-				break;
-			case 0x0007:
-				init_rect.width--;
-				if (init_rect.width <= 0) {
-					init_rect.width++;
-				}
-				CmdFromUart = 0xffff;
-				break;
-			case 0x0008:
-				init_rect.height++;
-				if (init_rect.br().y >= frame.rows) {
-					init_rect.height--;
-				}
-				CmdFromUart = 0xffff;
-				break;
-			case 0x0009:
-				init_rect.height--;
-				if (init_rect.height <= 0) {
-					init_rect.height++;
-				}
-				CmdFromUart = 0xffff;
-				break;
-			case 0x0010:
-				intracking = false;
-				init_rect = center_rect;
 				CmdFromUart = 0xffff;
 				break;
 			default:
 				break;
 			}
 			inputcamera >> frame;
-			if (CmdFromUart == 0x0001 || (!issamerect(object_rect,init_rect) && intracking)) {
+			if (track_turn==1 || (!issamerect(object_rect,init_rect) && intracking)) {
 				printf("inti roi frmae w:%d h:%d\n", frame.cols, frame.rows);
 				object_rect = init_rect;
 				tracker = TrackerKCF::create(params);
@@ -329,61 +319,24 @@ void *writefun(void *datafrommainthread) {
 			        break;
 			    }
 				intracking = true;
-				CmdFromUart = 0xffff;
+				track_turn = 0;
 			} else {
 			}
 			if (intracking) {
 				if (tracker->update(frame, object_rect)) {
 					init_rect = object_rect;
-					switch (looseflag) {
-					case 0:
-						putText(frame, "tracking", Point(10, 10),
-								FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,
-								8);
-						looseflag++;
-						break;
-					case 1:
-						putText(frame, "tracking.", Point(10, 10),
-								FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,
-								8);
-						looseflag++;
-						break;
-					case 2:
-						putText(frame, "tracking..", Point(10, 10),
-								FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,
-								8);
-						looseflag++;
-						break;
-					case 3:
-						putText(frame, "tracking...", Point(10, 10),
-								FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,
-								8);
-						looseflag++;
-						break;
-					case 4:
-						putText(frame, "tracking....", Point(10, 10),
-								FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,
-								8);
-						looseflag = 0;
-						break;
-					default:
-						putText(frame, "tracking tracking!", Point(10, 10),
-								FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,
-								8);
-						looseflag = 0;
-						break;
-					}
+					putText(frame, "tracking", Point(10, 10),FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,8);
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
 					drawcross(frame,init_rect,Scalar(0,0,255));
 					object_center_x = object_rect.x + object_rect.width * 0.5;
 					object_center_y = object_rect.y + object_rect.height * 0.5;
-					trackstatus = 1;
+					track_status = 1;
 				} else {
 					putText(frame, "lose object press A retrack", Point(10, 10),
 							FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
-					object_center_x = frame.cols * 0.5;
-					object_center_y = frame.rows * 0.5;
-					trackstatus = 2;
+					object_center_x = 0;
+					object_center_y = 0;
+					track_status = 2;
 				}
 				outputVideo << frame;
 
@@ -392,19 +345,22 @@ void *writefun(void *datafrommainthread) {
 				drawcross(frame,init_rect,Scalar(255,0,0));
 				putText(frame, "press A to begin", Point(10, 10),
 						FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
-				object_center_x = frame.cols * 0.5;
-				object_center_y = frame.rows * 0.5;
-				trackstatus = 0;
+				object_center_x = 0;
+				object_center_y = 0;
+				track_status = 0;
 			}
 			imshow("FEIFANUAV", frame);
 			keyboardcmd = (char) waitKey(1);
 
-			xl = (object_center_x & 0x000000ff);
-			xh = ((object_center_x >> 8) & 0x000000ff);
-			yl = (object_center_y & 0x000000ff);
-			yh = ((object_center_y >> 8) & 0x000000ff);
+            short x_offset,y_offset;
+            x_offset = (float)(object_center_x - frame.cols*0.5)/frame.cols*0.5*160;
+            y_offset = (float)(object_center_y - frame.rows*0.5)/frame.rows*0.5*120;
+			xl = (x_offset & 0x000000ff);
+			xh = ((x_offset >> 8) & 0x000000ff);
+			yl = (y_offset & 0x000000ff);
+			yh = ((y_offset >> 8) & 0x000000ff);
 			unsigned char buff[writebuffsize] = { 0x55, 0xaa, 0x00, 0x00, 0x05,
-					0x00, xl, xh, yl, yh, trackstatus, 0xff, 0xff, 0x16 };
+					0x00, xl, xh, yl, yh, track_status, 0xff, 0xff, 0x16 };
 			unsigned int cyc = 0;
 			unsigned char cl, ch;
 			for (int i = 0; i < (writebuffsize - 3); i++) {
