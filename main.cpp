@@ -269,7 +269,7 @@ void *writefun(void *datafrommainthread) {
 			case 0x0002:
 			    memcpy(&X_Move,databuff,sizeof(short));
 				init_rect.x = init_rect.x + X_Move;
-				if ((init_rect.x <= 0) && (init_rect.br().x >= frame.cols) ) {
+				if ((init_rect.x <= 0) || (init_rect.br().x >= frame.cols) ) {
 					init_rect.x = init_rect.x - X_Move;
 				}
 				CmdFromUart = 0xffff;
@@ -277,7 +277,7 @@ void *writefun(void *datafrommainthread) {
 			case 0x0003:
 			    memcpy(&Y_Move,databuff,sizeof(short));
 				init_rect.y = init_rect.y + Y_Move;
-				if ( (init_rect.y <= 0) && (init_rect.br().y >= frame.rows)) {
+				if ( (init_rect.y <= 0) || (init_rect.br().y >= frame.rows)) {
 					init_rect.y = init_rect.y - Y_Move;;
 				}
 				CmdFromUart = 0xffff;
