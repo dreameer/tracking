@@ -82,8 +82,7 @@ int readqpeng(int p_ttyfd, void *dst, int size, int waitnum) {
 		return -1;
 	}
 }
-string gettimestrwithavi(void)
-{
+string gettimestrwithavi(void){
     time_t current_time;
     char* c_time_string;
     current_time = time(NULL);
@@ -101,13 +100,20 @@ string gettimestrwithavi(void)
     const string NAME = timestr + ".avi";   // Form the new name with container
     return NAME;
 }
-void drawcross(Mat frame,Rect2d init_rect,const Scalar& color)
-{
+void drawcross(Mat frame,Rect2d init_rect,const Scalar& color){
 	line(frame,Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.4),
 	Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.6),color,1,1);
 	line(frame,Point(init_rect.x+init_rect.width*0.4,init_rect.y+init_rect.height*0.5),
 	Point(init_rect.x+init_rect.width*0.6,init_rect.y+init_rect.height*0.5),color,1,1);
 }
+bool issamerect(Rect2d rect1,Rect2d rect2){
+	if((rect1.x==rect2.x)&&(rect1.y==rect2.y)&&(rect1.width==rect2.width)&&(rect1.height==rect2.height)){
+		return true;
+	}
+	else{
+		return false;
+	}
+}  
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 	unsigned char buff[readbuffsize];
@@ -229,6 +235,7 @@ void *writefun(void *datafrommainthread) {
 		inputcamera >> frame;
 		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
 		init_rect = center_rect;
+		object_rect = init_rect;
 		namedWindow("FEIFANUAV", 0);
 		int looseflag = 0;
 		unsigned char trackstatus = 0;
@@ -300,13 +307,14 @@ void *writefun(void *datafrommainthread) {
 				break;
 			case 0x0010:
 				intracking = false;
+				init_rect = center_rect;
 				CmdFromUart = 0xffff;
 				break;
 			default:
 				break;
 			}
 			inputcamera >> frame;
-			if (CmdFromUart == 0x0001) {
+			if (CmdFromUart == 0x0001 || (!issamerect(object_rect,init_rect) && intracking)) {
 				printf("inti roi frmae w:%d h:%d\n", frame.cols, frame.rows);
 				object_rect = init_rect;
 				tracker = TrackerKCF::create(params);
@@ -326,6 +334,7 @@ void *writefun(void *datafrommainthread) {
 			}
 			if (intracking) {
 				if (tracker->update(frame, object_rect)) {
+					init_rect = object_rect;
 					switch (looseflag) {
 					case 0:
 						putText(frame, "tracking", Point(10, 10),
