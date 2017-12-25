@@ -59,6 +59,9 @@
 #define databuffsize 4
 #define writebuffsize 14
 
+#define protocol_width  320
+#define protocol_height 240
+
 using namespace std;
 using namespace cv;
 
@@ -268,24 +271,26 @@ void *writefun(void *datafrommainthread) {
 				break;
 			case 0x0002:
 			    memcpy(&X_Move,databuff,sizeof(short));
-				init_rect.x = init_rect.x + X_Move;
+			    temp = init_rect.x;
+				init_rect.x = (float)(X_Move+protocol_width*0.5)/protocol_width*frame.cols - init_rect.width*0.5;
 				if ((init_rect.x <= 0) || (init_rect.br().x >= frame.cols) ) {
-					init_rect.x = init_rect.x - X_Move;
+					init_rect.x = temp;
 				}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0003:
 			    memcpy(&Y_Move,databuff,sizeof(short));
-				init_rect.y = init_rect.y + Y_Move;
+			    temp = init_rect.y;
+				init_rect.y = (float)(Y_Move+protocol_height*0.5)/protocol_height*frame.rows - init_rect.height*0.5;
 				if ( (init_rect.y <= 0) || (init_rect.br().y >= frame.rows)) {
-					init_rect.y = init_rect.y - Y_Move;;
+					init_rect.y = temp;
 				}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0004:
 			    memcpy(&Width,databuff,sizeof(unsigned short));
 			    temp = init_rect.width;
-				init_rect.width = ((float)Width/320)*frame.cols;
+				init_rect.width = ((float)Width/protocol_width)*frame.cols;
 				if (init_rect.br().x >= frame.cols) {
 					init_rect.width = temp;
 				}
@@ -294,7 +299,7 @@ void *writefun(void *datafrommainthread) {
 			case 0x0005:
 		        memcpy(&Height,databuff,sizeof(unsigned short));
 				temp = init_rect.height;
-				init_rect.height = ((float)Height/240)*frame.rows;
+				init_rect.height = ((float)Height/protocol_height)*frame.rows;
 				if (init_rect.br().y >= frame.rows) {
 					init_rect.height = temp;
 				}
