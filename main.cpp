@@ -251,6 +251,7 @@ void *writefun(void *datafrommainthread) {
 		unsigned short Width = 0;
 		unsigned short Height = 0;
 		unsigned short temp = 0;
+		unsigned short temp1 = 0;
 		while (MainControl) {
 			switch(keyboardcmd){
 			case 'q':track_turn = 1;break;
@@ -290,18 +291,24 @@ void *writefun(void *datafrommainthread) {
 			case 0x0004:
 			    memcpy(&Width,databuff,sizeof(unsigned short));
 			    temp = init_rect.width;
+			    temp1 = init_rect.x;
 				init_rect.width = ((float)Width/protocol_width)*frame.cols;
-				if (init_rect.br().x >= frame.cols) {
+				init_rect.x = init_rect.x - (init_rect.width-temp)*0.5;
+				if((init_rect.x <= 0) || (init_rect.br().x >= frame.cols) ){
 					init_rect.width = temp;
+					init_rect.x = temp1;
 				}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0005:
 		        memcpy(&Height,databuff,sizeof(unsigned short));
 				temp = init_rect.height;
+				temp1 = init_rect.y;
 				init_rect.height = ((float)Height/protocol_height)*frame.rows;
-				if (init_rect.br().y >= frame.rows) {
+				init_rect.y = init_rect.y - (init_rect.height-temp)*0.5;
+				if ( (init_rect.y <= 0) || (init_rect.br().y >= frame.rows)) {
 					init_rect.height = temp;
+					init_rect.y = temp1;
 				}
 				CmdFromUart = 0xffff;
 				break;
