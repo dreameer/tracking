@@ -264,7 +264,8 @@ void *writefun(void *datafrommainthread) {
 			    memcpy(&Lock,databuff,sizeof(unsigned char));
 			    if(Lock==0){
 					intracking = false;
-					//init_rect = center_rect;
+					init_rect.x = frame.cols*0.5-init_rect.width;
+					init_rect.y = frame.rows*0.5-init_rect.height;
 				}else if(Lock==1){
 					track_turn = 1;
 				}
