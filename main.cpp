@@ -347,8 +347,8 @@ void *writefun(void *datafrommainthread) {
 				} else {
 					putText(frame, "lose object press A retrack", Point(10, 10),
 							FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
-					object_center_x = 0;
-					object_center_y = 0;
+					object_center_x = 160;
+					object_center_y = 120;
 					track_status = 2;
 				}
 				outputVideo << frame;
@@ -358,16 +358,16 @@ void *writefun(void *datafrommainthread) {
 				drawcross(frame,init_rect,Scalar(255,0,0));
 				putText(frame, "press A to begin", Point(10, 10),
 						FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
-				object_center_x = 0;
-				object_center_y = 0;
+				object_center_x = 160;
+				object_center_y = 120;
 				track_status = 0;
 			}
 			imshow("FEIFANUAV", frame);
 			keyboardcmd = (char) waitKey(1);
 
             short x_offset,y_offset;
-            x_offset = (float)(object_center_x - frame.cols*0.5)/frame.cols*0.5*160;
-            y_offset = (float)(object_center_y - frame.rows*0.5)/frame.rows*0.5*120;
+            x_offset =   object_center_x - frame.cols*0.5;
+            y_offset = - (object_center_y - frame.rows*0.5);
 			xl = (x_offset & 0x000000ff);
 			xh = ((x_offset >> 8) & 0x000000ff);
 			yl = (y_offset & 0x000000ff);
