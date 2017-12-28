@@ -255,7 +255,10 @@ void *writefun(void *datafrommainthread) {
 		while (MainControl) {
 			switch(keyboardcmd){
 			case 'q':track_turn = 1;break;
-			case 'w':intracking = false;break;
+			case 'w':intracking = false;
+					init_rect.x = frame.cols*0.5-init_rect.width*0.5;
+					init_rect.y = frame.rows*0.5-init_rect.height*0.5;
+					break;
 			case 'e':MainControl = false;break;
 			default:break;
 			}
