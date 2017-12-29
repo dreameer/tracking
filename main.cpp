@@ -221,7 +221,7 @@ void *writefun(void *datafrommainthread) {
 	Ptr<Tracker> tracker;
 	TrackerKCF::Params params;
 	params.pca_learning_rate = 0.1f;
-	params.detect_thresh = 0.25f;
+	params.detect_thresh = 0.4f;
 
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
@@ -241,7 +241,7 @@ void *writefun(void *datafrommainthread) {
 		init_rect = center_rect;
 		object_rect = init_rect;
 		namedWindow("FEIFANUAV", 0);
-		setWindowProperty("FEIFANUAV",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		//setWindowProperty("FEIFANUAV",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
 		char keyboardcmd = 'c';
