@@ -62,6 +62,8 @@
 #define protocol_width  320
 #define protocol_height 240
 
+//#define RECORDVEDIO
+
 using namespace std;
 using namespace cv;
 
@@ -241,8 +243,8 @@ void *writefun(void *datafrommainthread) {
 
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
-    int WIDTH = 1280;
-    int HEIGHT = 720;
+    int WIDTH = 1920;
+    int HEIGHT = 1080;
     int FPS = 30;
  
     // Define the gstream pipeline
@@ -353,6 +355,8 @@ void *writefun(void *datafrommainthread) {
 				object_rect = init_rect;
 				tracker = TrackerKCF::create(params);
 				tracker->init(frame, object_rect);
+				
+				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
 			    Size S = Size((int) inputcamera.get(CAP_PROP_FRAME_WIDTH),
 			                  (int) inputcamera.get(CAP_PROP_FRAME_HEIGHT));
@@ -362,6 +366,7 @@ void *writefun(void *datafrommainthread) {
 			        cout  << "Could not open the output video for write: " << endl;
 			        break;
 			    }
+			    #endif
 				intracking = true;
 				track_turn = 0;
 			} else {
@@ -382,7 +387,9 @@ void *writefun(void *datafrommainthread) {
 					object_center_y = 120;
 					track_status = 2;
 				}
+				#ifdef RECORDVEDIO
 				outputVideo << frame;
+				#endif
 
 			} else {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 1, 1);
