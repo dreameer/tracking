@@ -62,6 +62,9 @@
 #define protocol_width  320
 #define protocol_height 240
 
+#define camera_width  1920
+#define camera_height 1080
+    
 //#define RECORDVEDIO
 
 using namespace std;
@@ -243,20 +246,11 @@ void *writefun(void *datafrommainthread) {
 
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
-    int WIDTH = 1920;
-    int HEIGHT = 1080;
     int FPS = 30;
- 
-    // Define the gstream pipeline
-    std::string pipeline = get_tegra_pipeline(WIDTH, HEIGHT, FPS);
-    std::cout << "Using pipeline: \n\t" << pipeline << "\n";
- 
-    // Create OpenCV capture object, ensure it works.
-    cv::VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
+    std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
+    VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
+    VideoWriter outputVideo;
     
-	VideoWriter outputVideo;
-	//inputcamera.set(CAP_PROP_FRAME_WIDTH,320);
-	//inputcamera.set(CAP_PROP_FRAME_HEIGHT,240);
 	if (!inputcamera.isOpened()) {
 		printf("cant open camera!\n");
 	} else {
@@ -377,14 +371,14 @@ void *writefun(void *datafrommainthread) {
 					putText(frame, "tracking", Point(10, 10),FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,8);
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
 					drawcross(frame,init_rect,Scalar(0,0,255));
-					object_center_x = object_rect.x + object_rect.width * 0.5;
-					object_center_y = object_rect.y + object_rect.height * 0.5;
+					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)camera_width);
+					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)camera_height);
 					track_status = 1;
 				} else {
 					putText(frame, "lose object press A retrack", Point(10, 10),
 							FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
-					object_center_x = 160;
-					object_center_y = 120;
+					object_center_x = protocol_width*0.5;
+					object_center_y = protocol_height*0.5;
 					track_status = 2;
 				}
 				#ifdef RECORDVEDIO
@@ -396,16 +390,16 @@ void *writefun(void *datafrommainthread) {
 				drawcross(frame,init_rect,Scalar(255,0,0));
 				putText(frame, "press A to begin", Point(10, 10),
 						FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
-				object_center_x = 160;
-				object_center_y = 120;
+				object_center_x = protocol_width*0.5;
+				object_center_y = protocol_height*0.5;
 				track_status = 0;
 			}
 			imshow("FEIFANUAV", frame);
 			keyboardcmd = (char) waitKey(1);
 
             short x_offset,y_offset;
-            x_offset =   object_center_x - frame.cols*0.5;
-            y_offset = - (object_center_y - frame.rows*0.5);
+            x_offset =   object_center_x - protocol_width*0.5;
+            y_offset = - (object_center_y - protocol_height*0.5);
 			xl = (x_offset & 0x000000ff);
 			xh = ((x_offset >> 8) & 0x000000ff);
 			yl = (y_offset & 0x000000ff);
