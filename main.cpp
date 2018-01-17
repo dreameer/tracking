@@ -45,7 +45,7 @@
 #include <opencv2/highgui.hpp>
 #include <iostream>
 #include <cstring>
-
+#include <sstream>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>   /* Standard input/output definitions */
@@ -74,6 +74,22 @@ bool WriteEnd = false;
 typedef struct passdatathread {
 	int tty_filedescriptor;
 }*Ppassdatathread;
+ 
+namespace patch
+{
+    template < typename T > std::string to_string( const T& n )
+    {
+        std::ostringstream stm ;
+        stm << n ;
+        return stm.str() ;
+    }
+}
+std::string get_tegra_pipeline(int width, int height, int fps) {
+    return "nvcamerasrc sensor-id=0 ! video/x-raw(memory:NVMM), width=(int)" + patch::to_string(width) + ", height=(int)" +
+           patch::to_string(height) + ", format=(string)I420, framerate=(fraction)" + patch::to_string(fps) +
+           "/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink";
+}
+
 int readqpeng(int p_ttyfd, void *dst, int size, int waitnum) {
 	int mwaitnum = 0;
 	int num = -1;
@@ -225,10 +241,20 @@ void *writefun(void *datafrommainthread) {
 
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
-	VideoCapture inputcamera(0);
+    int WIDTH = 1280;
+    int HEIGHT = 720;
+    int FPS = 30;
+ 
+    // Define the gstream pipeline
+    std::string pipeline = get_tegra_pipeline(WIDTH, HEIGHT, FPS);
+    std::cout << "Using pipeline: \n\t" << pipeline << "\n";
+ 
+    // Create OpenCV capture object, ensure it works.
+    cv::VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
+    
 	VideoWriter outputVideo;
-	inputcamera.set(CAP_PROP_FRAME_WIDTH,320);
-	inputcamera.set(CAP_PROP_FRAME_HEIGHT,240);
+	//inputcamera.set(CAP_PROP_FRAME_WIDTH,320);
+	//inputcamera.set(CAP_PROP_FRAME_HEIGHT,240);
 	if (!inputcamera.isOpened()) {
 		printf("cant open camera!\n");
 	} else {
@@ -240,7 +266,7 @@ void *writefun(void *datafrommainthread) {
 		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
 		init_rect = center_rect;
 		object_rect = init_rect;
-		namedWindow("FEIFANUAV", 0);
+		namedWindow("FEIFANUAV", 1);
 		//setWindowProperty("FEIFANUAV",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
@@ -254,6 +280,7 @@ void *writefun(void *datafrommainthread) {
 		unsigned short temp = 0;
 		unsigned short temp1 = 0;
 		while (MainControl) {
+			int64 start = cv::getTickCount();
 			switch(keyboardcmd){
 			case 'q':track_turn = 1;break;
 			case 'w':intracking = false;
@@ -390,6 +417,8 @@ void *writefun(void *datafrommainthread) {
 			for (int i = 0; i < writebuffsize; i++) {
 				write(m_ttyfd, &buff[i], 1);
 			}
+			double fps = cv::getTickFrequency() / (cv::getTickCount()-start);
+			cout<<frame.cols<<" "<<frame.rows<<" "<<fps<<endl;
 		}
 	}
 	printf("end write thread\n");
