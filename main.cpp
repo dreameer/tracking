@@ -62,8 +62,8 @@
 #define protocol_width  320
 #define protocol_height 240
 
-#define camera_width  1920
-#define camera_height 1080
+#define camera_width  1280
+#define camera_height 720
     
 //#define RECORDVEDIO
 
@@ -262,8 +262,10 @@ void *writefun(void *datafrommainthread) {
 		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
 		init_rect = center_rect;
 		object_rect = init_rect;
-		namedWindow("FEIFANUAV", 1);
-		//setWindowProperty("FEIFANUAV",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		const char windowname[] = "FEIFANUAV";
+		namedWindow(windowname, 1);
+		moveWindow(windowname,200,100);
+		//setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
 		char keyboardcmd = 'c';
@@ -345,7 +347,6 @@ void *writefun(void *datafrommainthread) {
 			}
 			inputcamera >> frame;
 			if (track_turn==1 || (!issamerect(object_rect,init_rect) && intracking)) {
-				printf("inti roi frmae w:%d h:%d\n", frame.cols, frame.rows);
 				object_rect = init_rect;
 				tracker = TrackerKCF::create(params);
 				tracker->init(frame, object_rect);
@@ -368,15 +369,12 @@ void *writefun(void *datafrommainthread) {
 			if (intracking) {
 				if (tracker->update(frame, object_rect)) {
 					init_rect = object_rect;
-					putText(frame, "tracking", Point(10, 10),FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1,8);
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
 					drawcross(frame,init_rect,Scalar(0,0,255));
 					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)camera_width);
 					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)camera_height);
 					track_status = 1;
 				} else {
-					putText(frame, "lose object press A retrack", Point(10, 10),
-							FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
 					object_center_x = protocol_width*0.5;
 					object_center_y = protocol_height*0.5;
 					track_status = 2;
@@ -388,14 +386,10 @@ void *writefun(void *datafrommainthread) {
 			} else {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 1, 1);
 				drawcross(frame,init_rect,Scalar(255,0,0));
-				putText(frame, "press A to begin", Point(10, 10),
-						FONT_HERSHEY_COMPLEX, 0.3, Scalar(0, 0, 255), 1, 8);
 				object_center_x = protocol_width*0.5;
 				object_center_y = protocol_height*0.5;
 				track_status = 0;
 			}
-			imshow("FEIFANUAV", frame);
-			keyboardcmd = (char) waitKey(1);
 
             short x_offset,y_offset;
             x_offset =   object_center_x - protocol_width*0.5;
@@ -419,7 +413,12 @@ void *writefun(void *datafrommainthread) {
 				write(m_ttyfd, &buff[i], 1);
 			}
 			double fps = cv::getTickFrequency() / (cv::getTickCount()-start);
-			cout<<frame.cols<<" "<<frame.rows<<" "<<fps<<endl;
+			string frameinfo = "width:" + patch::to_string(frame.cols) + " height:" + patch::to_string(frame.rows) + " fps:" + patch::to_string(fps);
+			putText(frame, frameinfo, Point(10, 40),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string tipsforcontroler = "blue rect means waitting,red rect means tracking,no rect means lose object";
+			putText(frame,tipsforcontroler, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			imshow(windowname, frame);
+			keyboardcmd = (char) waitKey(1);
 		}
 	}
 	printf("end write thread\n");
