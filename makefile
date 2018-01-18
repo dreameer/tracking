@@ -2,6 +2,6 @@ INCLUDE = $(shell pkg-config --cflags opencv)
 LIBS    = $(shell pkg-config --libs   opencv)
 
 all:main.cpp 
-	g++ -Wall -I $(INCLUDE) $(LIBS) -lpthread main.cpp -o tracking
+	g++ -Wall -I $(INCLUDE) main.cpp -o main $(LIBS) -lpthread 
 clean:
-	rm tracking
+	rm main
