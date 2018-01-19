@@ -59,11 +59,11 @@
 #define databuffsize 4
 #define writebuffsize 14
 
-#define protocol_width  320
-#define protocol_height 240
+#define protocol_width  812
+#define protocol_height 812
 
-#define camera_width  1280
-#define camera_height 720
+#define camera_width  800
+#define camera_height 600
     
 //#define RECORDVEDIO
 
@@ -212,7 +212,7 @@ void *readfun(void *datafrommainthread) {
 				printf("first byte not 55 :%X\n", buff[0]);
 			}
 		} else {
-			//printf("read no data\n");
+			//printf("*");
 		}
 	}
 	printf("end read thread\n");
@@ -263,9 +263,9 @@ void *writefun(void *datafrommainthread) {
 		init_rect = center_rect;
 		object_rect = init_rect;
 		const char windowname[] = "FEIFANUAV";
-		namedWindow(windowname, 1);
-		moveWindow(windowname,200,100);
-		//setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		namedWindow(windowname, 0);
+		//moveWindow(windowname,200,100);
+		setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
 		char keyboardcmd = 'c';
@@ -444,7 +444,7 @@ int main(int argc, char *argv[]) {
 	tio.c_lflag = 0;
 	tio.c_cc[VMIN] = 1;
 	tio.c_cc[VTIME] = 0;
-	const char ttyname[] = "/dev/ttyS0";
+	const char ttyname[] = "/dev/ttyTHS2";
 	int tty_fd = open(ttyname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (!isatty(tty_fd)) {
 		fprintf(logFile,"filedescritor is not a tty device!\n");
