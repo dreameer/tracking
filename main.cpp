@@ -62,8 +62,8 @@
 #define protocol_width  812
 #define protocol_height 812
 
-#define camera_width  800
-#define camera_height 600
+#define camera_width 640 
+#define camera_height 480
     
 //#define RECORDVEDIO
 
@@ -90,7 +90,7 @@ namespace patch
     }
 }
 std::string get_tegra_pipeline(int width, int height, int fps) {
-    return "nvcamerasrc sensor-id=0 ! video/x-raw(memory:NVMM), width=(int)" + patch::to_string(width) + ", height=(int)" +
+    return "nvcamerasrc sensor-id= 0 ! video/x-raw(memory:NVMM), width=(int)" + patch::to_string(width) + ", height=(int)" +
            patch::to_string(height) + ", format=(string)I420, framerate=(fraction)" + patch::to_string(fps) +
            "/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink";
 }
@@ -128,9 +128,9 @@ string gettimestrwithavi(void){
 }
 void drawcross(Mat frame,Rect2d init_rect,const Scalar& color){
 	line(frame,Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.4),
-	Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.6),color,1,1);
+	Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.6),color,2,1);
 	line(frame,Point(init_rect.x+init_rect.width*0.4,init_rect.y+init_rect.height*0.5),
-	Point(init_rect.x+init_rect.width*0.6,init_rect.y+init_rect.height*0.5),color,1,1);
+	Point(init_rect.x+init_rect.width*0.6,init_rect.y+init_rect.height*0.5),color,2,1);
 }
 bool issamerect(Rect2d rect1,Rect2d rect2){
 	if((rect1.x==rect2.x)&&(rect1.y==rect2.y)&&(rect1.width==rect2.width)&&(rect1.height==rect2.height)){
@@ -243,13 +243,13 @@ void *writefun(void *datafrommainthread) {
 	TrackerKCF::Params params;
 	params.pca_learning_rate = 0.1f;
 	params.detect_thresh = 0.4f;
-
+	params.max_patch_size=camera_width*camera_height;
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
     int FPS = 30;
     std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
     VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
-    VideoWriter outputVideo;
+	VideoWriter outputVideo;
     
 	if (!inputcamera.isOpened()) {
 		printf("cant open camera!\n");
@@ -263,9 +263,9 @@ void *writefun(void *datafrommainthread) {
 		init_rect = center_rect;
 		object_rect = init_rect;
 		const char windowname[] = "FEIFANUAV";
-		namedWindow(windowname, 0);
-		//moveWindow(windowname,200,100);
-		setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		namedWindow(windowname,1 );
+		moveWindow(windowname,200,100);
+		//setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
 		char keyboardcmd = 'c';
@@ -347,9 +347,14 @@ void *writefun(void *datafrommainthread) {
 			}
 			inputcamera >> frame;
 			if (track_turn==1 || (!issamerect(object_rect,init_rect) && intracking)) {
-				object_rect = init_rect;
+				object_rect.x = (int)(init_rect.x);
+				object_rect.y = (int)(init_rect.y);
+				object_rect.width = (int)(init_rect.width);
+				object_rect.height = (int)(init_rect.height);
 				tracker = TrackerKCF::create(params);
-				tracker->init(frame, object_rect);
+				cout<<"before init tracker"<<endl;
+				bool initstatus = tracker->init(frame, object_rect);
+				cout<<"after init tracker"<<initstatus<<endl;
 				
 				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
@@ -369,7 +374,7 @@ void *writefun(void *datafrommainthread) {
 			if (intracking) {
 				if (tracker->update(frame, object_rect)) {
 					init_rect = object_rect;
-					rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
+					rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
 					drawcross(frame,init_rect,Scalar(0,0,255));
 					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)camera_width);
 					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)camera_height);
@@ -384,7 +389,7 @@ void *writefun(void *datafrommainthread) {
 				#endif
 
 			} else {
-				rectangle(frame, init_rect, Scalar(255, 0, 0), 1, 1);
+				rectangle(frame, init_rect, Scalar(255, 0, 0), 2, 1);
 				drawcross(frame,init_rect,Scalar(255,0,0));
 				object_center_x = protocol_width*0.5;
 				object_center_y = protocol_height*0.5;
@@ -413,10 +418,12 @@ void *writefun(void *datafrommainthread) {
 				write(m_ttyfd, &buff[i], 1);
 			}
 			double fps = cv::getTickFrequency() / (cv::getTickCount()-start);
-			string frameinfo = "width:" + patch::to_string(frame.cols) + " height:" + patch::to_string(frame.rows) + " fps:" + patch::to_string(fps);
+			string frameinfo = "framewidth:" + patch::to_string(frame.cols) + " frameheight:" + patch::to_string(frame.rows) + " fps:" + patch::to_string(fps);
 			putText(frame, frameinfo, Point(10, 40),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
-			string tipsforcontroler = "blue rect means waitting,red rect means tracking,no rect means lose object";
-			putText(frame,tipsforcontroler, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string rectinfo = patch::to_string(object_rect.width)+" "+ patch::to_string(object_rect.height)+" "  + patch::to_string(x_offset)+" "  + patch::to_string(y_offset);
+			putText(frame, rectinfo, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string tipsforcontroler = "blue waitting,red tracking,no rect lose object";
+			putText(frame,tipsforcontroler, Point(10, 120),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
 		}
