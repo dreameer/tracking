@@ -1,1 +1,6 @@
-ii
+begin
+finish open tty
+finish create threadw
+finish create threadr
+thread exit
+close tty

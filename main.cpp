@@ -246,9 +246,11 @@ void *writefun(void *datafrommainthread) {
 	params.max_patch_size=camera_width*camera_height;
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
-    int FPS = 30;
-    std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
-    VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
+	int FPS = 30;
+	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
+	VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
+	//cout<<"exposure"<<inputcamera.set(CAP_PROP_EXPOSURE,-9)<<endl;
+	//cout<<"exposure"<<inputcamera.get(CAP_PROP_EXPOSURE)<<endl;
 	VideoWriter outputVideo;
     
 	if (!inputcamera.isOpened()) {
@@ -418,12 +420,10 @@ void *writefun(void *datafrommainthread) {
 				write(m_ttyfd, &buff[i], 1);
 			}
 			double fps = cv::getTickFrequency() / (cv::getTickCount()-start);
-			string frameinfo = "framewidth:" + patch::to_string(frame.cols) + " frameheight:" + patch::to_string(frame.rows) + " fps:" + patch::to_string(fps);
-			putText(frame, frameinfo, Point(10, 40),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
-			string rectinfo = patch::to_string(object_rect.width)+" "+ patch::to_string(object_rect.height)+" "  + patch::to_string(x_offset)+" "  + patch::to_string(y_offset);
-			putText(frame, rectinfo, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
-			string tipsforcontroler = "blue waitting,red tracking,no rect lose object";
-			putText(frame,tipsforcontroler, Point(10, 120),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string rectinfo = patch::to_string(frame.cols) + patch::to_string(frame.rows) + patch::to_string(object_rect.width)+" "+ patch::to_string(object_rect.height);
+			putText(frame, rectinfo, Point(10, 40),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string frameinfo = patch::to_string(x_offset)+" "  + patch::to_string(y_offset) + "FPS: " + patch::to_string(fps);
+			putText(frame, frameinfo, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
 		}
