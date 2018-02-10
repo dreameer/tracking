@@ -62,8 +62,8 @@
 #define protocol_width  812
 #define protocol_height 812
 
-#define camera_width 640 
-#define camera_height 480
+#define camera_width 1280 
+#define camera_height 720
     
 //#define RECORDVEDIO
 
@@ -92,7 +92,7 @@ namespace patch
 std::string get_tegra_pipeline(int width, int height, int fps) {
     return "nvcamerasrc sensor-id= 0 ! video/x-raw(memory:NVMM), width=(int)" + patch::to_string(width) + ", height=(int)" +
            patch::to_string(height) + ", format=(string)I420, framerate=(fraction)" + patch::to_string(fps) +
-           "/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink";
+           "/1 ! nvvidconv flip-method=2 ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink";
 }
 
 int readqpeng(int p_ttyfd, void *dst, int size, int waitnum) {
@@ -230,6 +230,7 @@ void *writefun(void *datafrommainthread) {
 
 	Ptr<Tracker> tracker;
 	TrackerMedianFlow::Params params;
+	params.pointsInGrid = 20;
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
 	int FPS = 30;
