@@ -220,37 +220,21 @@ void *readfun(void *datafrommainthread) {
 }
 void *writefun(void *datafrommainthread) {
 	/*
-	 detect_thresh = 0.5f;     //!<  detection confidence threshold
-	 sigma=0.2f;               //!<  gaussian kernel bandwidth
-	 lambda=0.0001f;           //!<  regularization
-	 interp_factor=0.075f;     //!<  linear interpolation factor for adaptation
-	 output_sigma_factor=1.0f / 16.0f;  //!<  spatial bandwidth (proportional to target)
-	 resize=true;              //!<  activate the resize feature to improve the processing speed
-	 max_patch_size=80*80;     //!<  threshold for the ROI size
-	 split_coeff=true;         //!<  split the training coefficients into two matrices
-	 wrap_kernel=false;        //!<  wrap around the kernel values
-	 desc_npca = GRAY;         //!<  non-compressed descriptors of TrackerKCF::MODE
-	 desc_pca = CN;            //!<  compressed descriptors of TrackerKCF::MODE
-
-	 //feature compression
-	 compress_feature=true;    //!<  activate the pca method to compress the features
-	 compressed_size=2;        //!<  feature size after compression
-	 pca_learning_rate=0.15f;  //!<  compression learning rate
-	 *
-	 */
+    pointsInGrid=10;             //!<square root of number of keypoints used; increase it to trade accurateness for speed
+    winSize = Size(3,3);         //!<window size parameter for Lucas-Kanade optical flow
+    maxLevel = 5;                //!<maximal pyramid level number for Lucas-Kanade optical flow
+    termCriteria = TermCriteria(TermCriteria::COUNT|TermCriteria::EPS,20,0.3); //!<termination criteria for Lucas-Kanade optical flow
+    winSizeNCC = Size(30,30);     //!<window size around a point for normalized cross-correlation check
+    maxMedianLengthOfDisplacementDifference = 10;    //!<criterion for loosing the tracked object
+	*/
 
 	Ptr<Tracker> tracker;
-	TrackerKCF::Params params;
-	params.pca_learning_rate = 0.1f;
-	params.detect_thresh = 0.4f;
-	params.max_patch_size=camera_width*camera_height;
+	TrackerMedianFlow::Params params;
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 
 	int FPS = 30;
 	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
 	VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
-	//cout<<"exposure"<<inputcamera.set(CAP_PROP_EXPOSURE,-9)<<endl;
-	//cout<<"exposure"<<inputcamera.get(CAP_PROP_EXPOSURE)<<endl;
 	VideoWriter outputVideo;
     
 	if (!inputcamera.isOpened()) {
@@ -353,7 +337,7 @@ void *writefun(void *datafrommainthread) {
 				object_rect.y = (int)(init_rect.y);
 				object_rect.width = (int)(init_rect.width);
 				object_rect.height = (int)(init_rect.height);
-				tracker = TrackerKCF::create(params);
+				tracker = TrackerMedianFlow::create(params);
 				cout<<"before init tracker"<<endl;
 				bool initstatus = tracker->init(frame, object_rect);
 				cout<<"after init tracker"<<initstatus<<endl;
