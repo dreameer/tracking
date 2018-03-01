@@ -55,6 +55,13 @@
 #include <errno.h>   /* Error number definitions */
 #include <termios.h> /* POSIX terminal control definitions */
 
+
+#include <linux/i2c-dev.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+
+
 #define readbuffsize 32
 #define databuffsize 4
 #define writebuffsize 14
@@ -62,8 +69,8 @@
 #define protocol_width  812
 #define protocol_height 812
 
-#define camera_width 1280 
-#define camera_height 720
+#define camera_width 2592 
+#define camera_height 1944 
     
 //#define RECORDVEDIO
 
@@ -139,7 +146,66 @@ bool issamerect(Rect2d rect1,Rect2d rect2){
 	else{
 		return false;
 	}
-}  
+}
+bool isrectinmat(Rect2d rect,Mat frame){
+	if((rect.x>=0)&&
+	   (rect.y>=0)&&
+	   ((rect.x+rect.width)<=frame.cols)&&
+	   ((rect.y+rect.height)<=frame.rows)){
+		   return true;
+	   }
+	else{
+		   return false;
+	   }
+}
+void putrectcenter(Rect2d &smallrect,Rect2d largerect){
+	smallrect.x = largerect.width*0.5-smallrect.width*0.5;
+	smallrect.y = largerect.height*0.5-smallrect.height*0.5;
+}
+void  focal_length(unsigned short length){
+	unsigned short _length = length;
+	printf("focal_length:%d\n",_length);
+	int file;
+	int adapter_nr = 2; //probably dynamically determined
+	char filename[20];
+
+	snprintf(filename,19,"/dev/i2c-%d",adapter_nr);
+	file = open(filename,O_RDWR);
+	if(file<0){
+		//ERROR HANDLING;you can check errno to see what went wrong
+		printf("open file failed\n");
+		exit(1);
+	}
+	
+	int addr = 0x0c; //the i2c address
+	if(ioctl(file,I2C_SLAVE,addr)<0){
+		//ERROR HANDLING;you can check errno to see what went wrong
+		printf("ioctl error\n");
+		exit(1);
+	}
+	
+	__u8 reg = 0x04;
+	__s32 res;
+	char buff[10];
+
+	//Using SMBus commads
+	//res = i2c_smbus_read_word_data(file,reg);
+	if(res<0){
+		//ERROR HANDLING:i2c transaction failed
+		printf("i2c smbus read failed\n");
+	}else{
+		//res contains the read word
+	}
+	//Using I2C Write,equivalent of i2c_smbus_write_word_data(file,reg,0x6543);
+	buff[0] = reg;
+	memcpy(&buff[1],((unsigned char*)&_length)+1,1);
+	memcpy(&buff[2],((unsigned char*)&_length),1);
+	res = write(file,buff,3);
+	if(res!=3){
+		printf("write failed:%d\n",res);
+	}else{
+	}
+}
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 	unsigned char buff[readbuffsize];
@@ -219,6 +285,9 @@ void *readfun(void *datafrommainthread) {
 	ReadEnd = true;
 }
 void *writefun(void *datafrommainthread) {
+	
+	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
+	
 	/*
     pointsInGrid=10;             //!<square root of number of keypoints used; increase it to trade accurateness for speed
     winSize = Size(3,3);         //!<window size parameter for Lucas-Kanade optical flow
@@ -227,11 +296,10 @@ void *writefun(void *datafrommainthread) {
     winSizeNCC = Size(30,30);     //!<window size around a point for normalized cross-correlation check
     maxMedianLengthOfDisplacementDifference = 10;    //!<criterion for loosing the tracked object
 	*/
-
 	Ptr<Tracker> tracker;
 	TrackerMedianFlow::Params params;
 	params.pointsInGrid = 20;
-	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
+	
 
 	int FPS = 30;
 	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
@@ -241,22 +309,45 @@ void *writefun(void *datafrommainthread) {
 	if (!inputcamera.isOpened()) {
 		printf("cant open camera!\n");
 	} else {
-		Mat frame;
-		Rect2d object_rect, init_rect, center_rect;
+		Mat raw,frame,roi;
+		
+		
+		Rect2d roi_rect,object_rect, init_rect, center_rect;
+		
+		
 		int object_center_x, object_center_y;
 		unsigned char xl, xh, yl, yh;
-		inputcamera >> frame;
+		
+		
+		
+		
+		inputcamera >> raw;
+		//pyrDown(raw,frame,Size(raw.cols/2,raw.rows/2));
+		roi_rect = Rect(raw.cols/2-250,raw.rows/2-190,500,380);
+		roi = raw(roi_rect);
+		frame = roi;
 		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
 		init_rect = center_rect;
 		object_rect = init_rect;
+		
+		
+		
+		
 		const char windowname[] = "FEIFANUAV";
-		namedWindow(windowname,1 );
+		namedWindow(windowname,WINDOW_NORMAL );
 		moveWindow(windowname,200,100);
+		resizeWindow(windowname,1000,720);
 		//setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		
+		
+		
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
 		char keyboardcmd = 'c';
 		bool intracking = false;
+		
+		
+		
 		unsigned char Lock = 0;
 		short X_Move = 0;
 		short Y_Move = 0;
@@ -264,17 +355,111 @@ void *writefun(void *datafrommainthread) {
 		unsigned short Height = 0;
 		unsigned short temp = 0;
 		unsigned short temp1 = 0;
+		
+		
+		unsigned short length = 350;
 		while (MainControl) {
 			int64 start = cv::getTickCount();
+			
+			
+			
+			
+			
 			switch(keyboardcmd){
 			case 'q':track_turn = 1;break;
 			case 'w':intracking = false;
 					init_rect.x = frame.cols*0.5-init_rect.width*0.5;
 					init_rect.y = frame.rows*0.5-init_rect.height*0.5;
 					break;
+			case 'f':length = length+10;
+			         if((length<993)&&(length>0)){
+						 focal_length(length);
+					 }else{
+						length = 0;
+					 }
+					break;
+			case 'g':length = length-10;
+			         if((length<993)&&(length>0)){
+						 focal_length(length);
+					 }else{
+						length = 0;
+					 }
+					break;
+			case 'v':length = length+1;
+			         if((length<993)&&(length>0)){
+						 focal_length(length);
+					 }else{
+						length = 0;
+					 }
+					break;
+			case 'b':length = length-1;
+			         if((length<993)&&(length>0)){
+						 focal_length(length);
+					 }else{
+						length = 0;
+					 }
+					break;
+			case 'j':roi_rect.x = roi_rect.x-roi_rect.width*0.1;
+			         if(!isrectinmat(roi_rect,raw)){
+						 roi_rect.x = roi_rect.x+roi_rect.width*0.1;
+					 }
+					 else{
+						 putrectcenter(init_rect,roi_rect);
+					 }
+					 break;
+			case 'l':roi_rect.x = roi_rect.x+roi_rect.width*0.1;
+			         if(!isrectinmat(roi_rect,raw)){
+						 roi_rect.x = roi_rect.x-roi_rect.width*0.1;
+					 }
+					 else{
+						 putrectcenter(init_rect,roi_rect);
+					}
+					break;
+			case 'i':roi_rect.y = roi_rect.y-roi_rect.height*0.1;
+                     if(!isrectinmat(roi_rect,raw)){
+						 roi_rect.y=roi_rect.y+roi_rect.height*0.1;
+					 }
+					 else{
+						 putrectcenter(init_rect,roi_rect);
+					}break;
+			case 'k':roi_rect.y = roi_rect.y+roi_rect.height*0.1;
+					 if(!isrectinmat(roi_rect,raw)){
+						 roi_rect.y = roi_rect.y-roi_rect.height*0.1;
+					 }
+					 else{
+						 putrectcenter(init_rect,roi_rect);
+					}break;
+			case 'u':roi_rect.x = roi_rect.x - 0.5*(roi_rect.width*0.1);
+					 roi_rect.width = roi_rect.width*1.1;
+			         roi_rect.y = roi_rect.y - 0.5*(roi_rect.height*0.1);
+			         roi_rect.height = roi_rect.height*1.1;
+			         if(!isrectinmat(roi_rect,raw)){
+						 roi_rect.width = roi_rect.width/1.1;
+						 roi_rect.x = roi_rect.x + 0.5*(roi_rect.width*0.1);
+						 roi_rect.height = roi_rect.height/1.1;
+						 roi_rect.y = roi_rect.y + 0.5*(roi_rect.height*0.1);
+					 }else{
+						 putrectcenter(init_rect,roi_rect);
+					}break;
+			case 'o':roi_rect.x = roi_rect.x + 0.5*(roi_rect.width*0.1);
+					 roi_rect.width = roi_rect.width*0.9;
+			         roi_rect.y = roi_rect.y + 0.5*(roi_rect.height*0.1);
+			         roi_rect.height = roi_rect.height*0.9;
+			         if(!isrectinmat(roi_rect,raw)){
+						 roi_rect.width = roi_rect.width/0.9;
+						 roi_rect.x = roi_rect.x - 0.5*(roi_rect.width*0.1);
+						 roi_rect.height = roi_rect.height/0.9;
+						 roi_rect.y = roi_rect.y - 0.5*(roi_rect.height*0.1);
+					 }else{
+						 putrectcenter(init_rect,roi_rect);
+					}break;
 			case 'e':MainControl = false;break;
 			default:break;
 			}
+			
+			
+			
+			
 			switch (CmdFromUart) {
 			case 0x0001:
 			    memcpy(&Lock,databuff,sizeof(unsigned char));
@@ -332,7 +517,14 @@ void *writefun(void *datafrommainthread) {
 			default:
 				break;
 			}
-			inputcamera >> frame;
+			
+			
+			
+			
+			inputcamera >> raw;
+			//pyrDown(raw,frame,Size(raw.cols/2,raw.rows/2));
+			roi = raw(roi_rect);
+			frame = roi;
 			if (track_turn==1 || (!issamerect(object_rect,init_rect) && intracking)) {
 				object_rect.x = (int)(init_rect.x);
 				object_rect.y = (int)(init_rect.y);
@@ -358,6 +550,8 @@ void *writefun(void *datafrommainthread) {
 				track_turn = 0;
 			} else {
 			}
+			
+			
 			if (intracking) {
 				if (tracker->update(frame, object_rect)) {
 					init_rect = object_rect;
@@ -405,10 +599,13 @@ void *writefun(void *datafrommainthread) {
 				write(m_ttyfd, &buff[i], 1);
 			}
 			double fps = cv::getTickFrequency() / (cv::getTickCount()-start);
-			string rectinfo = patch::to_string(frame.cols) + patch::to_string(frame.rows) + patch::to_string(object_rect.width)+" "+ patch::to_string(object_rect.height);
-			putText(frame, rectinfo, Point(10, 40),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
-			string frameinfo = patch::to_string(x_offset)+" "  + patch::to_string(y_offset) + "FPS: " + patch::to_string(fps);
-			putText(frame, frameinfo, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			
+			string roi_rect_info = patch::to_string(roi_rect.width)+" "+patch::to_string(roi_rect.height)+" "+patch::to_string(roi_rect.x+0.5*roi_rect.width)+" "+patch::to_string(roi_rect.y+0.5*roi_rect.height); 
+			putText(frame, roi_rect_info, Point(10, 40),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string object_rect_info = patch::to_string(object_rect.width)+" "+patch::to_string(object_rect.height);
+			putText(frame, object_rect_info, Point(10, 80),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			string fps_offset_info = patch::to_string(x_offset)+" "  + patch::to_string(y_offset) +" "+ "FPS: " + patch::to_string(fps);
+			putText(frame, fps_offset_info, Point(10, 120),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
 		}
@@ -464,7 +661,8 @@ int main(int argc, char *argv[]) {
 	id_w = pthread_create(&thread_w, NULL, writefun, (void*) writethreaddata);
 	fprintf(logFile, "finish create threadw\n");
 	fflush(logFile);
-	id_r = pthread_create(&thread_r, NULL, readfun, (void*) readthreaddata);
+	//id_r = pthread_create(&thread_r, NULL, readfun, (void*) readthreaddata);
+	ReadEnd = true;
 	fprintf(logFile, "finish create threadr\n");
 	fflush(logFile);
 
