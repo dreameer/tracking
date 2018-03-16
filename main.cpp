@@ -69,8 +69,8 @@
 #define protocol_width  812
 #define protocol_height 812
 
-#define camera_width 2592 
-#define camera_height 1944 
+#define camera_width 1280 
+#define camera_height 720 
     
 //#define RECORDVEDIO
 
@@ -100,6 +100,7 @@ std::string get_tegra_pipeline(int width, int height, int fps) {
     return "nvcamerasrc sensor-id= 0 ! video/x-raw(memory:NVMM), width=(int)" + patch::to_string(width) + ", height=(int)" +
            patch::to_string(height) + ", format=(string)I420, framerate=(fraction)" + patch::to_string(fps) +
            "/1 ! nvvidconv flip-method=2 ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink";
+           //"/1 ! nvvidconv flip-method=2 !  appsink";
 }
 
 int readqpeng(int p_ttyfd, void *dst, int size, int waitnum) {
@@ -297,9 +298,7 @@ void *writefun(void *datafrommainthread) {
     maxMedianLengthOfDisplacementDifference = 10;    //!<criterion for loosing the tracked object
 	*/
 	Ptr<Tracker> tracker;
-	TrackerMedianFlow::Params params;
-	params.pointsInGrid = 20;
-	
+	TrackerKCF::Params params;
 
 	int FPS = 30;
 	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
@@ -323,10 +322,10 @@ void *writefun(void *datafrommainthread) {
 		
 		inputcamera >> raw;
 		//pyrDown(raw,frame,Size(raw.cols/2,raw.rows/2));
-		roi_rect = Rect(raw.cols/2-250,raw.rows/2-190,500,380);
+		roi_rect = Rect(0,0,raw.cols,raw.rows);
 		roi = raw(roi_rect);
 		frame = roi;
-		center_rect = Rect(frame.cols * 0.40, frame.rows * 0.45,frame.cols * 0.2, frame.rows * 0.1);
+		center_rect = Rect(frame.cols * 0.40, frame.rows*0.5-frame.cols*0.1,frame.cols * 0.2, frame.cols * 0.2);
 		init_rect = center_rect;
 		object_rect = init_rect;
 		
@@ -453,6 +452,33 @@ void *writefun(void *datafrommainthread) {
 					 }else{
 						 putrectcenter(init_rect,roi_rect);
 					}break;
+			case 'p':roi_rect = Rect(0,0,raw.cols,raw.rows);
+			         init_rect = center_rect;
+			         break;
+			case 'n':init_rect.x = init_rect.x - 0.5*(init_rect.width*0.1);
+					 init_rect.width = init_rect.width*1.1;
+			         init_rect.y = init_rect.y - 0.5*(init_rect.height*0.1);
+			         init_rect.height = init_rect.height*1.1;
+			         if(!isrectinmat(init_rect,frame)){
+						 init_rect.width = init_rect.width/1.1;
+						 init_rect.x = init_rect.x + 0.5*(init_rect.width*0.1);
+						 init_rect.height = init_rect.height/1.1;
+						 init_rect.y = init_rect.y + 0.5*(init_rect.height*0.1);
+					 }else{
+						 
+					}break;
+			case 'm':init_rect.x = init_rect.x + 0.5*(init_rect.width*0.1);
+					 init_rect.width = init_rect.width*0.9;
+			         init_rect.y = init_rect.y + 0.5*(init_rect.height*0.1);
+			         init_rect.height = init_rect.height*0.9;
+			         if(!isrectinmat(init_rect,frame)){
+						 init_rect.width = init_rect.width/0.9;
+						 init_rect.x = init_rect.x - 0.5*(init_rect.width*0.1);
+						 init_rect.height = init_rect.height/0.9;
+						 init_rect.y = init_rect.y - 0.5*(init_rect.height*0.1);
+					 }else{
+					}break;
+			case 'c':imwrite("raw.jpg",raw);break;
 			case 'e':MainControl = false;break;
 			default:break;
 			}
@@ -530,7 +556,7 @@ void *writefun(void *datafrommainthread) {
 				object_rect.y = (int)(init_rect.y);
 				object_rect.width = (int)(init_rect.width);
 				object_rect.height = (int)(init_rect.height);
-				tracker = TrackerMedianFlow::create(params);
+				tracker = TrackerKCF::create(params);
 				cout<<"before init tracker"<<endl;
 				bool initstatus = tracker->init(frame, object_rect);
 				cout<<"after init tracker"<<initstatus<<endl;
@@ -557,8 +583,8 @@ void *writefun(void *datafrommainthread) {
 					init_rect = object_rect;
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
 					drawcross(frame,init_rect,Scalar(0,0,255));
-					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)camera_width);
-					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)camera_height);
+					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
+					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
 					track_status = 1;
 				} else {
 					object_center_x = protocol_width*0.5;
@@ -585,7 +611,7 @@ void *writefun(void *datafrommainthread) {
 			yl = (y_offset & 0x000000ff);
 			yh = ((y_offset >> 8) & 0x000000ff);
 			unsigned char buff[writebuffsize] = { 0x55, 0xaa, 0x00, 0x00, 0x05,
-					0x00, xl, xh, yl, yh, track_status, 0xff, 0xff, 0x16 };
+					0x00,xl, xh, yl, yh, track_status, 0xff, 0xff, 0x16 };
 			unsigned int cyc = 0;
 			unsigned char cl, ch;
 			for (int i = 0; i < (writebuffsize - 3); i++) {
@@ -661,7 +687,7 @@ int main(int argc, char *argv[]) {
 	id_w = pthread_create(&thread_w, NULL, writefun, (void*) writethreaddata);
 	fprintf(logFile, "finish create threadw\n");
 	fflush(logFile);
-	//id_r = pthread_create(&thread_r, NULL, readfun, (void*) readthreaddata);
+	id_r = pthread_create(&thread_r, NULL, readfun, (void*) readthreaddata);
 	ReadEnd = true;
 	fprintf(logFile, "finish create threadr\n");
 	fflush(logFile);
@@ -673,5 +699,42 @@ int main(int argc, char *argv[]) {
 	close(tty_fd);
 	fprintf(logFile, "close tty\n");
 	fclose(logFile);
+	return 0;
+}
+int main1(){
+	int FPS = 30;
+	std::string pipeline = get_tegra_pipeline(2592,1944, FPS);
+	VideoCapture cap("nvcamerasrc sensor-id= 0 ! video/x-raw(memory:NVMM), width=(int)2592, height=(int)1944, format=(string)I420, framerate=(fraction)30/1 !nvvidconv flip-method=2 !  appsink", cv::CAP_GSTREAMER);
+	if (!cap.isOpened()) {
+		printf("cant open camera!\n");
+	} else {
+		Mat frame;
+		char keyboardcmd;
+		unsigned short length = 350;
+		for(;;){
+			cap>>frame;
+			namedWindow("just",WINDOW_NORMAL);
+			imshow("just",frame);
+			keyboardcmd = (char) waitKey(1);
+			if(keyboardcmd=='e')break;
+			switch(keyboardcmd){
+				case 'f':length = length+10;
+			         if((length<993)&&(length>0)){
+						 focal_length(length);
+					 }else{
+						length = 0;
+					 }
+					break;
+				case 'g':length = length-10;
+			         if((length<993)&&(length>0)){
+						 focal_length(length);
+					 }else{
+						length = 0;
+					 }
+					break;
+			}
+			
+		}
+	}
 	return 0;
 }
