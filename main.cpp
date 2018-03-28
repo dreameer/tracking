@@ -66,14 +66,14 @@
 #define databuffsize 4
 #define writebuffsize 14
 
-#define protocol_width  640
-#define protocol_height 480
+#define protocol_width  320
+#define protocol_height 240
 
 #define camera_width 1280 
 #define camera_height 720 
     
 //#define RECORDVEDIO
-
+#define fixed_fps 40
 using namespace std;
 using namespace cv;
 
@@ -135,10 +135,10 @@ string gettimestrwithavi(void){
     return NAME;
 }
 void drawcross(Mat frame,Rect2d init_rect,const Scalar& color){
-	line(frame,Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.4),
-	Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.6),color,2,1);
-	line(frame,Point(init_rect.x+init_rect.width*0.4,init_rect.y+init_rect.height*0.5),
-	Point(init_rect.x+init_rect.width*0.6,init_rect.y+init_rect.height*0.5),color,2,1);
+	line(frame,Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.1),
+	Point((init_rect.x+init_rect.width*0.5),init_rect.y+init_rect.height*0.95),color,1,1);
+	line(frame,Point(init_rect.x+init_rect.width*0.1,init_rect.y+init_rect.height*0.5),
+	Point(init_rect.x+init_rect.width*0.95,init_rect.y+init_rect.height*0.5),color,1,1);
 }
 bool issamerect(Rect2d rect1,Rect2d rect2){
 	if((rect1.x==rect2.x)&&(rect1.y==rect2.y)&&(rect1.width==rect2.width)&&(rect1.height==rect2.height)){
@@ -167,8 +167,8 @@ void scale_window(unsigned short scale,Rect2d &roi_rect,Mat raw){
 	if(scale>50||scale<1){
 		printf("error scale over flow\n");
 	}else{
-		roi_rect.width = raw.cols-(scale-1)*raw.cols*0.01;
-		roi_rect.height = raw.rows - (scale-1)*raw.rows*0.01;
+		roi_rect.width = raw.cols-(scale-1)*raw.cols*0.02;
+		roi_rect.height = raw.rows - (scale-1)*raw.rows*0.02;
 		roi_rect.x = (raw.cols - roi_rect.width)*0.5;
 		roi_rect.y = (raw.rows - roi_rect.height)*0.5;
 	}
@@ -317,8 +317,8 @@ void *writefun(void *datafrommainthread) {
 	 */
 	Ptr<Tracker> tracker;
 	TrackerKCF::Params params;
-	params.detect_thresh = 0.3f;
-	params.pca_learning_rate=0.30f;
+	params.detect_thresh = 0.5f;
+	params.pca_learning_rate=0.15f;
 	int FPS = 30;
 	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
 	VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
@@ -354,7 +354,7 @@ void *writefun(void *datafrommainthread) {
 		namedWindow(windowname,WINDOW_NORMAL );
 		moveWindow(windowname,200,100);
 		resizeWindow(windowname,camera_width,camera_height);
-		setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		//setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		
 		
 		
@@ -386,8 +386,6 @@ void *writefun(void *datafrommainthread) {
 			switch(keyboardcmd){
 			case 'q':track_turn = 1;break;
 			case 'w':intracking = false;
-					init_rect.x = frame.cols*0.5-init_rect.width*0.5;
-					init_rect.y = frame.rows*0.5-init_rect.height*0.5;
 					break;
 			case 'f':length = length+10;
 			         if((length<993)&&(length>0)){
@@ -452,7 +450,8 @@ void *writefun(void *datafrommainthread) {
 						 scale = 1;
 					 }else{
 						 scale_window(scale,roi_rect,raw);
-						 putrectcenter(init_rect,roi_rect);
+						 putrectcenter(center_rect,roi_rect);
+						 init_rect = center_rect;
 					 }
 			         break;
 			case 'o':scale = scale +1;
@@ -460,7 +459,8 @@ void *writefun(void *datafrommainthread) {
 						 scale = 50;
 					 }else{
 						 scale_window(scale,roi_rect,raw);
-						 putrectcenter(init_rect,roi_rect);
+						 putrectcenter(center_rect,roi_rect);
+						 init_rect = center_rect;
 					 }
 			         break;
 			case 'p':roi_rect = Rect(0,0,raw.cols,raw.rows);
@@ -555,7 +555,7 @@ void *writefun(void *datafrommainthread) {
 			    memcpy(&scale,databuff,sizeof(unsigned short));
 			    printf("uart 0x0006:%d\n",scale);
 			    scale_window(scale,roi_rect,raw);
-				putrectcenter(init_rect,roi_rect);
+				putrectcenter(center_rect,roi_rect);
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0007:
@@ -605,7 +605,6 @@ void *writefun(void *datafrommainthread) {
 				if (tracker->update(frame, object_rect)) {
 					init_rect = object_rect;
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
-					drawcross(frame,init_rect,Scalar(0,0,255));
 					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
 					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
 					track_status = 1;
@@ -620,7 +619,6 @@ void *writefun(void *datafrommainthread) {
 
 			} else {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 2, 1);
-				drawcross(frame,init_rect,Scalar(255,0,0));
 				object_center_x = protocol_width*0.5;
 				object_center_y = protocol_height*0.5;
 				track_status = 0;
@@ -647,11 +645,19 @@ void *writefun(void *datafrommainthread) {
 			for (int i = 0; i < writebuffsize; i++) {
 				write(m_ttyfd, &buff[i], 1);
 			}
-			double fps = cv::getTickFrequency() / (cv::getTickCount()-start);
+			double fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
+			if((int)fps<fixed_fps){
+				int control_fps = fixed_fps-(int)fps;
+				usleep(control_fps*1000);
+				printf("%d %d\n",(int)fps,control_fps);
+			}
+			fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
 			
 			putText(frame, patch::to_string(roi_rect.width)+"X"+patch::to_string(roi_rect.height), Point(10, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
 			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-80, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			drawcross(frame,center_rect,Scalar(0,255,0));
 			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-10),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
 		}
