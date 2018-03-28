@@ -163,6 +163,9 @@ void putrectcenter(Rect2d &smallrect,Rect2d largerect){
 	smallrect.x = largerect.width*0.5-smallrect.width*0.5;
 	smallrect.y = largerect.height*0.5-smallrect.height*0.5;
 }
+Rect2d getcenterrect(Mat frame){
+	return Rect(frame.cols * 0.45, frame.rows*0.5-frame.cols*0.05,frame.cols * 0.1, frame.cols * 0.1);
+}
 void scale_window(unsigned short scale,Rect2d &roi_rect,Mat raw){
 	if(scale>50||scale<1){
 		printf("error scale over flow\n");
@@ -319,6 +322,8 @@ void *writefun(void *datafrommainthread) {
 	TrackerKCF::Params params;
 	params.detect_thresh = 0.5f;
 	params.pca_learning_rate=0.15f;
+	params.compress_feature = false;
+	params.desc_npca = TrackerKCF::CUSTOM;
 	int FPS = 30;
 	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
 	VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
@@ -343,7 +348,7 @@ void *writefun(void *datafrommainthread) {
 		roi_rect = Rect(0,0,raw.cols,raw.rows);
 		roi = raw(roi_rect);
 		frame = roi;
-		center_rect = Rect(frame.cols * 0.45, frame.rows*0.5-frame.cols*0.05,frame.cols * 0.1, frame.cols * 0.1);
+		center_rect = getcenterrect(frame);
 		init_rect = center_rect;
 		object_rect = init_rect;
 		
@@ -450,8 +455,8 @@ void *writefun(void *datafrommainthread) {
 						 scale = 1;
 					 }else{
 						 scale_window(scale,roi_rect,raw);
-						 putrectcenter(center_rect,roi_rect);
-						 init_rect = center_rect;
+						 center_rect = getcenterrect(raw(roi_rect));
+						 
 					 }
 			         break;
 			case 'o':scale = scale +1;
@@ -459,8 +464,7 @@ void *writefun(void *datafrommainthread) {
 						 scale = 50;
 					 }else{
 						 scale_window(scale,roi_rect,raw);
-						 putrectcenter(center_rect,roi_rect);
-						 init_rect = center_rect;
+						 center_rect = getcenterrect(raw(roi_rect));
 					 }
 			         break;
 			case 'p':roi_rect = Rect(0,0,raw.cols,raw.rows);
@@ -555,7 +559,7 @@ void *writefun(void *datafrommainthread) {
 			    memcpy(&scale,databuff,sizeof(unsigned short));
 			    printf("uart 0x0006:%d\n",scale);
 			    scale_window(scale,roi_rect,raw);
-				putrectcenter(center_rect,roi_rect);
+				center_rect = getcenterrect(raw(roi_rect));
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0007:
@@ -609,6 +613,7 @@ void *writefun(void *datafrommainthread) {
 					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
 					track_status = 1;
 				} else {
+					//rectangle(frame, object_rect, Scalar(0, 255, 0), 2, 1);
 					object_center_x = protocol_width*0.5;
 					object_center_y = protocol_height*0.5;
 					track_status = 2;
