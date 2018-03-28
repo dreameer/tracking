@@ -379,7 +379,7 @@ void *writefun(void *datafrommainthread) {
 		unsigned short temp = 0;
 		unsigned short temp1 = 0;
 		unsigned short length = 350;
-		
+		focal_length(length);
 		
 		while (MainControl) {
 			int64 start = cv::getTickCount();
@@ -456,7 +456,7 @@ void *writefun(void *datafrommainthread) {
 					 }else{
 						 scale_window(scale,roi_rect,raw);
 						 center_rect = getcenterrect(raw(roi_rect));
-						 
+						 if(!intracking){init_rect = center_rect;}
 					 }
 			         break;
 			case 'o':scale = scale +1;
@@ -465,6 +465,7 @@ void *writefun(void *datafrommainthread) {
 					 }else{
 						 scale_window(scale,roi_rect,raw);
 						 center_rect = getcenterrect(raw(roi_rect));
+						 if(!intracking){init_rect = center_rect;}
 					 }
 			         break;
 			case 'p':roi_rect = Rect(0,0,raw.cols,raw.rows);
@@ -557,14 +558,13 @@ void *writefun(void *datafrommainthread) {
 				break;
 			case 0x0006:
 			    memcpy(&scale,databuff,sizeof(unsigned short));
-			    printf("uart 0x0006:%d\n",scale);
 			    scale_window(scale,roi_rect,raw);
 				center_rect = getcenterrect(raw(roi_rect));
+				if(!intracking){init_rect = center_rect;}
 				CmdFromUart = 0xffff;
 				break;
 			case 0x0007:
 				memcpy(&length,databuff,sizeof(unsigned short));
-				printf("uart 0x0007:%d\n",length);
 				focal_length(length);
 				CmdFromUart = 0xffff;
 				break;
@@ -584,9 +584,8 @@ void *writefun(void *datafrommainthread) {
 				object_rect.width = (int)(init_rect.width);
 				object_rect.height = (int)(init_rect.height);
 				tracker = TrackerKCF::create(params);
-				cout<<"before init tracker"<<endl;
 				bool initstatus = tracker->init(frame, object_rect);
-				cout<<"after init tracker"<<initstatus<<endl;
+
 				
 				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
@@ -654,14 +653,13 @@ void *writefun(void *datafrommainthread) {
 			if((int)fps<fixed_fps){
 				int control_fps = fixed_fps-(int)fps;
 				usleep(control_fps*1000);
-				printf("%d %d\n",(int)fps,control_fps);
 			}
 			fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
 			
-			putText(frame, patch::to_string(roi_rect.width)+"X"+patch::to_string(roi_rect.height), Point(10, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
-			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-80, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			putText(frame, patch::to_string(roi_rect.width)+"X"+patch::to_string(roi_rect.height), Point(10, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 255, 0), 1, 8);
+			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-80, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 255, 0), 1, 8);
 			drawcross(frame,center_rect,Scalar(0,255,0));
-			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-10),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 255), 1, 8);
+			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-10),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 255, 0), 1, 8);
 			
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
