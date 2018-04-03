@@ -69,10 +69,10 @@
 #define protocol_width  320
 #define protocol_height 240
 
-#define camera_width 1280 
-#define camera_height 720 
+#define camera_width 640 
+#define camera_height 480 
     
-//#define RECORDVEDIO
+#define RECORDVEDIO
 #define fixed_fps 40
 using namespace std;
 using namespace cv;
@@ -322,8 +322,7 @@ void *writefun(void *datafrommainthread) {
 	TrackerKCF::Params params;
 	params.detect_thresh = 0.5f;
 	params.pca_learning_rate=0.15f;
-	params.compress_feature = false;
-	params.desc_npca = TrackerKCF::CUSTOM;
+	params.wrap_kernel = false;
 	int FPS = 30;
 	std::string pipeline = get_tegra_pipeline(camera_width, camera_height, FPS);
 	VideoCapture inputcamera(pipeline, cv::CAP_GSTREAMER);
@@ -357,15 +356,15 @@ void *writefun(void *datafrommainthread) {
 		
 		const char windowname[] = "FEIFANUAV";
 		namedWindow(windowname,WINDOW_NORMAL );
-		moveWindow(windowname,200,100);
-		resizeWindow(windowname,camera_width,camera_height);
-		//setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+		//moveWindow(windowname,200,100);
+		//resizeWindow(windowname,camera_width,camera_height);
+		setWindowProperty(windowname,CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
 		
 		
 		
 		unsigned char track_status = 0;
 		unsigned char track_turn   = 0;
-		char keyboardcmd = 'c';
+		char keyboardcmd = '.';
 		bool intracking = false;
 		
 		
@@ -589,9 +588,9 @@ void *writefun(void *datafrommainthread) {
 				
 				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
-			    Size S = Size((int) inputcamera.get(CAP_PROP_FRAME_WIDTH),
-			                  (int) inputcamera.get(CAP_PROP_FRAME_HEIGHT));
-			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), inputcamera.get(CAP_PROP_FPS), S, true);
+			    Size S = Size((int) camera_width,
+			                  (int) camera_height);
+			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), (int)(1000.0/fixed_fps), S, true);
 			    if (!outputVideo.isOpened())
 			    {
 			        cout  << "Could not open the output video for write: " << endl;
