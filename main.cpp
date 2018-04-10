@@ -588,8 +588,8 @@ void *writefun(void *datafrommainthread) {
 				
 				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
-			    Size S = Size((int) (camera_width+1)/2,
-			                  (int) (camera_height+1)/2);
+			    Size S = Size((int) (frame.cols+1)/2,
+			                  (int) (frame.rows+1)/2);
 			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), (int)(1000.0/fixed_fps), S, true);
 			    if (!outputVideo.isOpened())
 			    {
@@ -652,7 +652,7 @@ void *writefun(void *datafrommainthread) {
 			}
 			fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
 			
-			putText(frame, patch::to_string(roi_rect.width)+"X"+patch::to_string(roi_rect.height), Point(10, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
+			putText(frame, patch::to_string((int)roi_rect.width)+"X"+patch::to_string((int)roi_rect.height), Point(10, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-120, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			drawcross(frame,center_rect,Scalar(0,255,0));
 			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
