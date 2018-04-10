@@ -66,11 +66,11 @@
 #define databuffsize 4
 #define writebuffsize 14
 
-#define protocol_width  320
-#define protocol_height 240
+#define protocol_width  1000
+#define protocol_height 1000
 
-#define camera_width 640 
-#define camera_height 480 
+#define camera_width 1280 
+#define camera_height 720 
     
 #define RECORDVEDIO
 #define fixed_fps 40
@@ -331,7 +331,7 @@ void *writefun(void *datafrommainthread) {
 	if (!inputcamera.isOpened()) {
 		printf("cant open camera!\n");
 	} else {
-		Mat raw,frame,roi;
+		Mat raw,frame,roi,record_frame;
 		
 		
 		Rect2d roi_rect,object_rect, init_rect, center_rect;
@@ -588,8 +588,8 @@ void *writefun(void *datafrommainthread) {
 				
 				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
-			    Size S = Size((int) camera_width,
-			                  (int) camera_height);
+			    Size S = Size((int) (camera_width+1)/2,
+			                  (int) (camera_height+1)/2);
 			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), (int)(1000.0/fixed_fps), S, true);
 			    if (!outputVideo.isOpened())
 			    {
@@ -616,9 +616,6 @@ void *writefun(void *datafrommainthread) {
 					object_center_y = protocol_height*0.5;
 					track_status = 2;
 				}
-				#ifdef RECORDVEDIO
-				outputVideo << frame;
-				#endif
 
 			} else {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 2, 1);
@@ -655,11 +652,17 @@ void *writefun(void *datafrommainthread) {
 			}
 			fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
 			
-			putText(frame, patch::to_string(roi_rect.width)+"X"+patch::to_string(roi_rect.height), Point(10, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 255, 0), 1, 8);
-			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-80, 20),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 255, 0), 1, 8);
+			putText(frame, patch::to_string(roi_rect.width)+"X"+patch::to_string(roi_rect.height), Point(10, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
+			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-120, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			drawcross(frame,center_rect,Scalar(0,255,0));
-			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-10),FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 255, 0), 1, 8);
+			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			
+			#ifdef RECORDVEDIO
+			if(intracking){
+				pyrDown(frame,record_frame,Size((frame.cols+1)/2,(frame.rows+1)/2));
+				outputVideo << record_frame;
+				}
+			#endif
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
 		}
@@ -687,7 +690,7 @@ int main(int argc, char *argv[]) {
 	tio.c_lflag = 0;
 	tio.c_cc[VMIN] = 1;
 	tio.c_cc[VTIME] = 0;
-	const char ttyname[] = "/dev/ttyTHS2";
+	const char ttyname[] = "/dev/ttyTHS1";
 	int tty_fd = open(ttyname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	if (!isatty(tty_fd)) {
 		fprintf(logFile,"filedescritor is not a tty device!\n");
